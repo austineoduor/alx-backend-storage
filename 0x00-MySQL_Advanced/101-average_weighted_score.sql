@@ -1,40 +1,35 @@
--- a SQL script that creates a stored procedure
--- ComputeAverageWeightedScoreForUsers that
+-- Creates a stored procedure ComputeAverageWeightedScoreForUsers that
 -- computes and store the average weighted score for all students.
-DROP PROCEDURE IF EXISTS ComputeAverageWeightedScoreForUser;
-
-DELIMITER //
-
-CREATE PROCEDURE ComputeAverageWeightedScoreForUser (IN user_id INT)
+DROP PROCEDURE IF EXISTS ComputeAverageWeightedScoreForUsers;
+DELIMITER $$
+CREATE PROCEDURE ComputeAverageWeightedScoreForUsers ()
 BEGIN
-UPDATE users
-SET average_score = (SELECT SUM(score * (SELECT weight FROM projects WHERE id = corrections.project_id)) / (SELECT sum(weight) FROM projects) FROM corrections WHERE corrections.user_id = user_id) WHERE id = user_id;
-END//
-DELIMITER ;
+    ALTER TABLE users ADD total_weighted_score INT NOT NULL;
+    ALTER TABLE users ADD total_weight INT NOT NULL;
 
-DELIMITER //
+    UPDATE users
+        SET total_weighted_score = (
+            SELECT SUM(corrections.score * projects.weight)
+            FROM corrections
+                INNER JOIN projects
+                    ON corrections.project_id = projects.id
+            WHERE corrections.user_id = users.id
+            );
 
-CREATE PROCEDURE ComputeAverageWeightedScoreForUsers()
-BEGIN
+    UPDATE users
+        SET total_weight = (
+            SELECT SUM(projects.weight)
+                FROM corrections
+                    INNER JOIN projects
+                        ON corrections.project_id = projects.id
+                WHERE corrections.user_id = users.id
+            );
 
-DECLARE finished INTEGER DEFAULT 0;
-DECLARE user_id INT;
-
-DECLARE curid CURSOR FOR SELECT id FROM users;
-
-DECLARE CONTINUE HANDLER
-      FOR NOT FOUND SET finished = 1;
-
-OPEN curid;
-
-getid: LOOP
-  FETCH curid INTO user_id;
-  IF finished = 1 THEN
-  LEAVE getEmail;
-  END IF;
-CALL ComputeAverageWeightedScoreForUser(user_id);
-END LOOP getid;
-CLOSE curid;
-
-END//
+    UPDATE users
+        SET users.average_score = IF(users.total_weight = 0, 0, users.total_weighted_score / users.total_weight);
+    ALTER TABLE users
+        DROP COLUMN total_weighted_score;
+    ALTER TABLE users
+        DROP COLUMN total_weight;
+END $$
 DELIMITER ;
