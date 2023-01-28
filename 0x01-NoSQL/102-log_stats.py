@@ -50,7 +50,7 @@ def get_IPS_count(con) -> None:
             ip[i.get('ip')] += 1
         elif i.get('ip'):
             ip[i.get('ip')] = 1
-        #pprint.pprint(i)
+        '''pprint.pprint(i)'''
     for a in sorted(ip, key=ip.get, reverse=True)[:10]:
             print("\t{}: {}".format(a, ip[a]))
 
