@@ -64,5 +64,5 @@ if __name__ == "__main__":
     print("Methods:")
     get_method_count(conn)
     print("{} status check".format(method_path(conn)))
-    print("IPS:")
+    print("IPs:")
     get_IPS_count(conn)
