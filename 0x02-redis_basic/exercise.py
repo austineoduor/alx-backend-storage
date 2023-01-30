@@ -5,6 +5,35 @@
 import redis
 from uuid import uuid4
 from typing import Union, Optional, Callable
+from functools import wraps
+
+
+def call_history(method: Callable) -> Callable:
+    """ store the history of inputs and outputs for a particular function """
+    key = method.__qualname__
+    inputs = key + ":inputs"
+    outputs = key + ":outputs"
+
+    @wraps(method)
+    def wrapper(self, *args, **kwds):
+        """ wrapped function """
+        self._redis.rpush(inputs, str(args))
+        data = method(self, *args, **kwds)
+        self._redis.rpush(outputs, str(data))
+        return data
+    return wrapper
+
+
+def count_calls(method: Callable) -> Callable:
+    """ to count how many times methods of the Cache class are called """
+    key = method.__qualname__
+
+    @wraps(method)
+    def wrapper(self, *args, **kwds):
+        """ wrapped function """
+        self._redis.incr(key)
+        return method(self, *args, **kwds)
+    return wrapper
 
 
 class Cache():
@@ -22,6 +51,8 @@ class Cache():
         self._redis = redis.Redis()
         self._redis.flushdb()
 
+    @call_history
+    @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
         '''
         a store method that takes a data argument
@@ -60,3 +91,19 @@ class Cache():
         except Exception:
             data = 0
         return data
+
+
+def replay(method: Callable):
+    """ display the history of calls of a particular function """
+    key = method.__qualname__
+    inputs = key + ":inputs"
+    outputs = key + ":outputs"
+    redis = method.__self__._redis
+    count = redis.get(key).decode("utf-8")
+    print("{} was called {} times:".format(key, count))
+    inputList = redis.lrange(inputs, 0, -1)
+    outputList = redis.lrange(outputs, 0, -1)
+    redis_zipped = list(zip(inputList, outputList))
+    for a, b in redis_zipped:
+        attr, data = a.decode("utf-8"), b.decode("utf-8")
+        print("{}(*{}) -> {}".format(key, attr, data))
