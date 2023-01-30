@@ -10,7 +10,7 @@ count = 0
 
 
 def get_page(url: str) -> str:
-    """ 
+    """
     track how many times a particular URL was accessed in the key
     "count:{url}" and cache the result with an expiration time of
     10 seconds
